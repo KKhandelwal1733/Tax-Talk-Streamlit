@@ -365,7 +365,7 @@ _DEFAULTS: dict[str, Any] = {
     "access_token": None,
     "user_email": None,
     "messages": [],
-    "chat_mode": "Stream",
+    "chat_mode": "Streaming",
     "api_health_status": None,
     "api_health_checked": False,
     "retry_request": None,
@@ -817,10 +817,10 @@ def render_chat(top_k: int, dense_top_k: int, bm25_top_k: int) -> None:
         retry_top_k = int(retry_request.get("top_k", top_k))
         retry_dense_top_k = int(retry_request.get("dense_top_k", dense_top_k))
         retry_bm25_top_k = int(retry_request.get("bm25_top_k", bm25_top_k))
-        retry_mode = str(retry_request.get("mode", st.session_state.chat_mode))
+        retry_mode = str(retry_request.get("mode", st.session_state.chat_mode)).strip().lower()
 
         token: str = st.session_state.access_token
-        if retry_mode == "Stream":
+        if retry_mode in {"streaming", "stream"}:
             _handle_stream(query, retry_top_k, retry_dense_top_k, retry_bm25_top_k, token)
         else:
             _handle_sync(query, retry_top_k, retry_dense_top_k, retry_bm25_top_k, token)
@@ -836,7 +836,7 @@ def render_chat(top_k: int, dense_top_k: int, bm25_top_k: int) -> None:
         st.markdown(user_input)
 
     token: str = st.session_state.access_token
-    if st.session_state.chat_mode == "Stream":
+    if st.session_state.chat_mode == "Streaming":
         _handle_stream(user_input, top_k, dense_top_k, bm25_top_k, token)
     else:
         _handle_sync(user_input, top_k, dense_top_k, bm25_top_k, token)
@@ -853,7 +853,7 @@ def _handle_stream(query: str, top_k: int, dense_top_k: int, bm25_top_k: int, to
         failure_text = ""
 
         retry_payload = _make_retry_payload(
-            query=query, top_k=top_k, dense_top_k=dense_top_k, bm25_top_k=bm25_top_k, mode="Stream",
+            query=query, top_k=top_k, dense_top_k=dense_top_k, bm25_top_k=bm25_top_k, mode="Streaming",
         )
 
         with st.spinner("Thinking…"):
@@ -900,7 +900,7 @@ def _handle_stream(query: str, top_k: int, dense_top_k: int, bm25_top_k: int, to
 def _handle_sync(query: str, top_k: int, dense_top_k: int, bm25_top_k: int, token: str) -> None:
     with st.chat_message("assistant", avatar=_chat_avatar("assistant")):
         retry_payload = _make_retry_payload(
-            query=query, top_k=top_k, dense_top_k=dense_top_k, bm25_top_k=bm25_top_k, mode="Sync",
+            query=query, top_k=top_k, dense_top_k=dense_top_k, bm25_top_k=bm25_top_k, mode="Non-Streaming",
         )
 
         failed = False
