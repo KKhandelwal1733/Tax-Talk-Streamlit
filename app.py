@@ -24,7 +24,8 @@ os.environ.setdefault("STREAMLIT_THEME_SIDEBAR_TEXT_COLOR", "#E8E8E8")
 
 import streamlit as st
 
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
+# Load a local .env file if present, but prefer Streamlit secrets for deployment.
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"), override=False)
 
 # ---------------------------------------------------------------------------
 # Profile — fill in your own links
@@ -41,7 +42,7 @@ BLOG_URL = "https://yourblog.com"
 def _get_secret(key: str, default: str = "") -> str:
     try:
         return st.secrets[key]
-    except (KeyError, FileNotFoundError):
+    except KeyError:
         return os.getenv(key, default)
 
 
