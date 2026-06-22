@@ -730,10 +730,10 @@ def render_sidebar() -> tuple[int, int, int]:
 
         _sidebar_section("tune", "Settings")
 
-        current_mode = st.session_state.get("chat_mode", "Stream")
+        current_mode = st.session_state.get("chat_mode", "Streaming")
         st.session_state.chat_mode = st.segmented_control(
-            "Response mode", ["Stream", "Sync"],
-            default=current_mode if current_mode in {"Stream", "Sync"} else "Stream",
+            "Response mode", ["Streaming", "Non-Streaming"],
+            default=current_mode if current_mode in {"Streaming", "Non-Streaming"} else "Streaming",
             selection_mode="single", label_visibility="collapsed",
         )
 
