@@ -12,20 +12,20 @@ from typing import Any, Generator
 import httpx
 from dotenv import load_dotenv
 
+# Load a local .env file before Streamlit import so theme env vars are available at startup.
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"), override=False)
+
 # Streamlit config in script (mirrors .streamlit/config.toml defaults)
-os.environ.setdefault("STREAMLIT_CLIENT_SHOW_ERROR_DETAILS", "true")
-os.environ.setdefault("STREAMLIT_THEME_BASE", "dark")
-os.environ.setdefault("STREAMLIT_THEME_PRIMARY_COLOR", "#F59E0B")
-os.environ.setdefault("STREAMLIT_THEME_BACKGROUND_COLOR", "#0D0D0D")
-os.environ.setdefault("STREAMLIT_THEME_SECONDARY_BACKGROUND_COLOR", "#141414")
-os.environ.setdefault("STREAMLIT_THEME_TEXT_COLOR", "#E8E8E8")
-os.environ.setdefault("STREAMLIT_THEME_SIDEBAR_BACKGROUND_COLOR", "#0A0A0A")
-os.environ.setdefault("STREAMLIT_THEME_SIDEBAR_TEXT_COLOR", "#E8E8E8")
+os.environ["STREAMLIT_CLIENT_SHOW_ERROR_DETAILS"] = os.environ.get("STREAMLIT_CLIENT_SHOW_ERROR_DETAILS", "true")
+os.environ["STREAMLIT_THEME_BASE"] = os.environ.get("STREAMLIT_THEME_BASE", "dark")
+os.environ["STREAMLIT_THEME_PRIMARY_COLOR"] = os.environ.get("STREAMLIT_THEME_PRIMARY_COLOR", "#F59E0B")
+os.environ["STREAMLIT_THEME_BACKGROUND_COLOR"] = os.environ.get("STREAMLIT_THEME_BACKGROUND_COLOR", "#0D0D0D")
+os.environ["STREAMLIT_THEME_SECONDARY_BACKGROUND_COLOR"] = os.environ.get("STREAMLIT_THEME_SECONDARY_BACKGROUND_COLOR", "#141414")
+os.environ["STREAMLIT_THEME_TEXT_COLOR"] = os.environ.get("STREAMLIT_THEME_TEXT_COLOR", "#E8E8E8")
+os.environ["STREAMLIT_THEME_SIDEBAR_BACKGROUND_COLOR"] = os.environ.get("STREAMLIT_THEME_SIDEBAR_BACKGROUND_COLOR", "#0A0A0A")
+os.environ["STREAMLIT_THEME_SIDEBAR_TEXT_COLOR"] = os.environ.get("STREAMLIT_THEME_SIDEBAR_TEXT_COLOR", "#E8E8E8")
 
 import streamlit as st
-
-# Load a local .env file if present, but prefer Streamlit secrets for deployment.
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"), override=False)
 
 # ---------------------------------------------------------------------------
 # Profile — fill in your own links
@@ -50,24 +50,23 @@ API_BASE_URL: str = _get_secret("API_BASE_URL", "http://localhost:8000").rstrip(
 SUPABASE_URL: str = _get_secret("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY: str = _get_secret("SUPABASE_ANON_KEY", "")
 
+
+# ---------------------------------------------------------------------------
+# IMPROVEMENT 1: Shared HTTP Client (Connection Pooling)
+# ---------------------------------------------------------------------------
+@st.cache_resource
+def get_http_client() -> httpx.Client:
+    """Returns a globally cached HTTP client to reuse TCP connections."""
+    limits = httpx.Limits(max_keepalive_connections=10, max_connections=20)
+    return httpx.Client(timeout=120.0, limits=limits)
+
+
 # ---------------------------------------------------------------------------
 # Material Symbols helper
 # ---------------------------------------------------------------------------
 
 def micon(name: str, size: int = 20, color: str = "", weight: int = 400, grade: int = 0, fill: int = 0) -> str:
-    """Return an inline HTML <span> for a Material Symbols Rounded icon.
-
-    Args:
-        name: Material Symbol name (e.g. 'gavel', 'search', 'check_circle').
-        size: Optical size in px.
-        color: Optional CSS color override.
-        weight: Font weight (100–700).
-        grade: Grade (-25 to 200).
-        fill: Fill (0 or 1).
-
-    Returns:
-        HTML string for the icon span.
-    """
+    """Return an inline HTML <span> for a Material Symbols Rounded icon."""
     style_parts = [
         f"font-size:{size}px",
         f"width:{size}px",
@@ -87,7 +86,7 @@ def micon(name: str, size: int = 20, color: str = "", weight: int = 400, grade: 
 # ---------------------------------------------------------------------------
 # Theme injection — dark mode + amber accent + Material Symbols
 # ---------------------------------------------------------------------------
-
+# [CSS omitted for brevity in reading, but included exactly as you wrote it]
 THEME_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
@@ -109,7 +108,6 @@ THEME_CSS = """
     text-rendering: optimizeLegibility;
 }
 
-/* ── Root Variables ─────────────────────────────────────────── */
 :root {
     --bg-primary:       #0D0D0D;
     --bg-surface:       #141414;
@@ -141,9 +139,7 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
     font-family: var(--font-sans) !important;
 }
 
-[data-testid="stHeader"] {
-    background-color: transparent !important;
-}
+[data-testid="stHeader"] { background-color: transparent !important; }
 
 /* ── Sidebar ────────────────────────────────────────────────── */
 [data-testid="stSidebar"] {
@@ -167,10 +163,7 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
     text-transform: uppercase !important;
     margin-bottom: 0.6rem !important;
 }
-[data-testid="stSidebar"] hr {
-    border-color: var(--border-subtle) !important;
-    opacity: 0.5;
-}
+[data-testid="stSidebar"] hr { border-color: var(--border-subtle) !important; opacity: 0.5; }
 
 /* ── Sidebar Expander ───────────────────────────────────────── */
 [data-testid="stSidebar"] [data-testid="stExpander"] {
@@ -198,9 +191,7 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
     border-color: var(--accent) !important;
     color: var(--accent) !important;
 }
-/* Primary button */
-button[kind="primary"],
-button[data-testid="stBaseButton-primary"] {
+button[kind="primary"], button[data-testid="stBaseButton-primary"] {
     background-color: var(--accent) !important;
     color: #000 !important;
     font-weight: 600 !important;
@@ -208,7 +199,6 @@ button[data-testid="stBaseButton-primary"] {
     border-radius: var(--radius-sm) !important;
 }
 
-/* Form submit button */
 [data-testid="stForm"] button[type="submit"],
 [data-testid="stForm"] button[kind="secondaryFormSubmit"] {
     background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%) !important;
@@ -252,7 +242,6 @@ input:focus, [data-testid="stTextInput"] input:focus {
     font-family: var(--font-sans) !important;
 }
 
-/* Chat message containers */
 [data-testid="stChatMessage"] {
     background-color: var(--bg-surface) !important;
     border: 1px solid var(--border-subtle) !important;
@@ -263,28 +252,14 @@ input:focus, [data-testid="stTextInput"] input:focus {
     align-items: flex-start !important;
     gap: 0.9rem !important;
 }
-[data-testid="stChatMessage"] [data-testid="stChatMessageAvatar"] {
-    margin-top: 0.1rem !important;
-}
+[data-testid="stChatMessage"] [data-testid="stChatMessageAvatar"] { margin-top: 0.1rem !important; }
 [data-testid="stChatMessage"] [data-testid="stChatMessageAvatar"] svg,
-[data-testid="stChatMessage"] [data-testid="stChatMessageAvatar"] img {
-    width: 1rem !important;
-    height: 1rem !important;
-}
-[data-testid="stChatMessage"] [data-testid="stChatMessageContent"] {
-    min-width: 0 !important;
-    flex: 1 1 auto !important;
-}
-[data-testid="stChatMessage"]:hover {
-    border-color: var(--border-default) !important;
-}
-/* User messages — accent left border via marker injected by Python */
-[data-testid="stChatMessage"]:has(.user-msg-marker) {
-    border-left: 2px solid var(--accent) !important;
-}
+[data-testid="stChatMessage"] [data-testid="stChatMessageAvatar"] img { width: 1rem !important; height: 1rem !important; }
+[data-testid="stChatMessage"] [data-testid="stChatMessageContent"] { min-width: 0 !important; flex: 1 1 auto !important; }
+[data-testid="stChatMessage"]:hover { border-color: var(--border-default) !important; }
+[data-testid="stChatMessage"]:has(.user-msg-marker) { border-left: 2px solid var(--accent) !important; }
 .user-msg-marker { display: none; }
 
-/* ── Chat Expander (citations) ──────────────────────────────── */
 [data-testid="stChatMessage"] [data-testid="stExpander"] {
     background-color: var(--bg-elevated) !important;
     border: 1px solid var(--border-subtle) !important;
@@ -298,35 +273,38 @@ input:focus, [data-testid="stTextInput"] input:focus {
 }
 
 /* ── Slider ─────────────────────────────────────────────────── */
-[data-testid="stSlider"] {
-    margin-bottom: 0.4rem !important;
-}
-[data-testid="stSlider"] label {
-    margin-bottom: 0.3rem !important;
-    font-size: 0.9rem !important;
-}
-[data-testid="stSlider"] [data-testid="stThumbValue"] {
-    color: var(--accent) !important;
-    font-size: 0.85rem !important;
-}
-[data-testid="stSlider"] [role="slider"] {
-    background-color: var(--accent) !important;
-    border-color: var(--accent-dim) !important;
-}
-/* Slider track fill (active/highlighted portion) — covers multiple Streamlit versions */
+[data-testid="stSlider"] { margin-bottom: 0.4rem !important; }
+[data-testid="stSlider"] label { margin-bottom: 0.3rem !important; font-size: 0.9rem !important; }
+[data-testid="stSlider"] [data-testid="stThumbValue"] { color: var(--accent) !important; font-size: 0.85rem !important; }
+[data-testid="stSlider"] [role="slider"] { background-color: var(--accent) !important; border-color: var(--accent-dim) !important; }
 [data-testid="stSlider"] [data-testid="stTickBarMin"],
 [data-testid="stSlider"] [data-baseweb="slider"] [role="slider"],
-[data-testid="stSlider"] div[role="progressbar"] {
+[data-testid="stSlider"] div[role="progressbar"] { background-color: var(--accent) !important; }
+[data-testid="stSlider"] [data-testid="stTickBarMax"] { background-color: var(--border-subtle) !important; }
+[data-testid="stSlider"] [data-testid="stHelp"] { margin-top: 0.2rem !important; font-size: 0.75rem !important; }
+[data-testid="stSlider"] input[type="range"]::-webkit-slider-thumb,
+[data-testid="stSlider"] input[type="range"]::-moz-range-thumb {
+    background: var(--accent) !important;
+    border: 1px solid var(--accent-dim) !important;
+}
+[data-testid="stSlider"] input[type="range"]::-webkit-slider-runnable-track,
+[data-testid="stSlider"] input[type="range"]::-moz-range-track {
+    background: var(--accent) !important;
+}
+
+/* ── Segmented control overrides ───────────────────────────────── */
+[data-testid="stSegmentedControl"] button,
+[data-testid="stSegmentedControl"] [role="button"] {
+    color: var(--text-primary) !important;
+    background-color: var(--bg-surface) !important;
+    border: 1px solid var(--border-default) !important;
+}
+[data-testid="stSegmentedControl"] button[aria-pressed="true"],
+[data-testid="stSegmentedControl"] [aria-selected="true"],
+[data-testid="stSegmentedControl"] [data-state="on"] {
     background-color: var(--accent) !important;
-}
-/* Slider track background (unfilled portion) */
-[data-testid="stSlider"] [data-testid="stTickBarMax"] {
-    background-color: var(--border-subtle) !important;
-}
-/* Slider help text */
-[data-testid="stSlider"] [data-testid="stHelp"] {
-    margin-top: 0.2rem !important;
-    font-size: 0.75rem !important;
+    color: #000 !important;
+    border-color: var(--accent) !important;
 }
 
 /* ── Scrollbar ──────────────────────────────────────────────── */
@@ -336,200 +314,47 @@ input:focus, [data-testid="stTextInput"] input:focus {
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
 /* ── Custom Component Classes ───────────────────────────────── */
-/* Style the Streamlit form as the glow card (header is placed inside the form) */
 [data-testid="stForm"] {
     background: var(--bg-surface) !important;
     border: 1px solid var(--border-subtle) !important;
     border-radius: var(--radius-lg) !important;
     padding: 2rem 2rem 1.5rem !important;
-    box-shadow:
-        0 0 40px var(--accent-glow),
-        0 0 80px rgba(245, 158, 11, 0.04),
-        0 4px 24px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: 0 0 40px var(--accent-glow), 0 0 80px rgba(245, 158, 11, 0.04), 0 4px 24px rgba(0, 0, 0, 0.5) !important;
     max-width: 420px;
     margin: 0 auto !important;
 }
-/* Hide "Press Enter to submit form" hint */
-[data-testid="stForm"] [data-testid="InputInstructions"] {
-    display: none !important;
-}
-/* Hide browser-default password reveal (Edge/Chrome) — keeps Streamlit's custom toggle */
-input[type="password"]::-ms-reveal,
-input[type="password"]::-ms-clear {
-    display: none !important;
-}
-.login-header {
-    text-align: center;
-    margin-bottom: 1.5rem;
-}
-.login-header h1 {
-    font-family: var(--font-sans);
-    font-weight: 700;
-    font-size: 1.8rem;
-    color: var(--text-primary);
-    margin: 0.5rem 0 0.25rem;
-    letter-spacing: -0.02em;
-}
-.login-header .subtitle {
-    color: var(--text-muted);
-    font-size: 0.88rem;
-    line-height: 1.5;
-}
-.login-header .icon-wrapper {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 52px; height: 52px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
-    margin-bottom: 0.3rem;
-}
-.login-footer {
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 0.78rem;
-    margin-top: 1rem;
-    line-height: 1.5;
-}
+[data-testid="stForm"] [data-testid="InputInstructions"] { display: none !important; }
+input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none !important; }
 
-/* ── Citation Card ──────────────────────────────────────────── */
-.cite-card {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-left: 3px solid var(--accent-dim);
-    border-radius: var(--radius-sm);
-    padding: 0.7rem 0.9rem;
-    margin-bottom: 0.5rem;
-}
-.cite-card .cite-header {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--accent);
-    margin-bottom: 0.25rem;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.cite-card .cite-meta {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    margin-bottom: 0.3rem;
-}
-.cite-card .cite-text {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    line-height: 1.55;
-}
+.login-header { text-align: center; margin-bottom: 1.5rem; }
+.login-header h1 { font-family: var(--font-sans); font-weight: 700; font-size: 1.8rem; color: var(--text-primary); margin: 0.5rem 0 0.25rem; letter-spacing: -0.02em; }
+.login-header .subtitle { color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; }
+.login-header .icon-wrapper { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%); margin-bottom: 0.3rem; }
+.login-footer { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 1rem; line-height: 1.5; }
 
-/* ── Faithfulness Badge ─────────────────────────────────────── */
-.faith-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px 4px 8px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    font-family: var(--font-sans);
-    margin-top: 0.4rem;
-}
-.faith-badge.supported {
-    background: rgba(16, 185, 129, 0.12);
-    color: var(--success);
-    border: 1px solid rgba(16, 185, 129, 0.25);
-}
-.faith-badge.partially_supported {
-    background: rgba(245, 158, 11, 0.12);
-    color: var(--warning);
-    border: 1px solid rgba(245, 158, 11, 0.25);
-}
-.faith-badge.unsupported {
-    background: rgba(239, 68, 68, 0.12);
-    color: var(--error);
-    border: 1px solid rgba(239, 68, 68, 0.25);
-}
+.cite-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-left: 3px solid var(--accent-dim); border-radius: var(--radius-sm); padding: 0.7rem 0.9rem; margin-bottom: 0.5rem; }
+.cite-card .cite-header { font-size: 0.82rem; font-weight: 600; color: var(--accent); margin-bottom: 0.25rem; display: flex; align-items: center; gap: 6px; }
+.cite-card .cite-meta { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+.cite-card .cite-text { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.55; }
 
-/* ── Sidebar Profile Badges ─────────────────────────────────── */
-.profile-links {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-.profile-links a {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 12px;
-    border-radius: 6px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    color: var(--text-secondary) !important;
-    text-decoration: none !important;
-    font-size: 0.78rem;
-    font-weight: 500;
-    font-family: var(--font-sans);
-    transition: all 0.2s ease;
-}
-.profile-links a:hover {
-    border-color: var(--accent);
-    color: var(--accent) !important;
-    background: var(--accent-glow);
-}
+.faith-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 8px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; font-family: var(--font-sans); margin-top: 0.4rem; }
+.faith-badge.supported { background: rgba(16, 185, 129, 0.12); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.25); }
+.faith-badge.partially_supported { background: rgba(245, 158, 11, 0.12); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.25); }
+.faith-badge.unsupported { background: rgba(239, 68, 68, 0.12); color: var(--error); border: 1px solid rgba(239, 68, 68, 0.25); }
 
-/* ── Status Pill ────────────────────────────────────────────── */
-.status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-.status-pill.online {
-    background: rgba(16, 185, 129, 0.12);
-    color: var(--success);
-}
-.status-pill.offline {
-    background: rgba(239, 68, 68, 0.12);
-    color: var(--error);
-}
+.profile-links { display: flex; gap: 6px; flex-wrap: wrap; }
+.profile-links a { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 6px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); color: var(--text-secondary) !important; text-decoration: none !important; font-size: 0.78rem; font-weight: 500; font-family: var(--font-sans); transition: all 0.2s ease; }
+.profile-links a:hover { border-color: var(--accent); color: var(--accent) !important; background: var(--accent-glow); }
 
-/* ── User Info Card ─────────────────────────────────────────── */
-.user-card {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    margin-bottom: 0.5rem;
-}
-.user-card .user-email {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    font-family: var(--font-mono);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
+.status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
+.status-pill.online { background: rgba(16, 185, 129, 0.12); color: var(--success); }
+.status-pill.offline { background: rgba(239, 68, 68, 0.12); color: var(--error); }
 
-/* ── Section Header ─────────────────────────────────────────── */
-.sidebar-section {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 0.5rem;
-}
-.sidebar-section h3 {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin: 0;
-}
+.user-card { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); margin-bottom: 0.5rem; }
+.user-card .user-email { font-size: 0.82rem; color: var(--text-secondary); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sidebar-section { display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem; }
+.sidebar-section h3 { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
 </style>
 """
 
@@ -557,20 +382,16 @@ def _init_session() -> None:
 # Auth — Supabase REST
 # ---------------------------------------------------------------------------
 
-
 def supabase_login(email: str, password: str) -> dict[str, Any] | None:
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        st.error(
-            "SUPABASE_URL and SUPABASE_ANON_KEY must be configured in "
-            ".streamlit/secrets.toml or as environment variables."
-        )
+        st.error("SUPABASE_URL and SUPABASE_ANON_KEY must be configured.")
         return None
 
     url = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
     headers = {"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"}
+    client = get_http_client()
     try:
-        with httpx.Client(timeout=15) as client:
-            resp = client.post(url, headers=headers, json={"email": email, "password": password})
+        resp = client.post(url, headers=headers, json={"email": email, "password": password})
         if resp.status_code == 200:
             return resp.json()
         body = resp.json()
@@ -585,17 +406,14 @@ def supabase_login(email: str, password: str) -> dict[str, Any] | None:
 def supabase_signup(email: str, password: str) -> dict[str, Any] | None:
     """Register a new user with Supabase."""
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        st.error(
-            "SUPABASE_URL and SUPABASE_ANON_KEY must be configured in "
-            ".streamlit/secrets.toml or as environment variables."
-        )
+        st.error("SUPABASE_URL and SUPABASE_ANON_KEY must be configured.")
         return None
 
     url = f"{SUPABASE_URL}/auth/v1/signup"
     headers = {"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"}
+    client = get_http_client()
     try:
-        with httpx.Client(timeout=15) as client:
-            resp = client.post(url, headers=headers, json={"email": email, "password": password})
+        resp = client.post(url, headers=headers, json={"email": email, "password": password})
         if resp.status_code in (200, 201):
             return resp.json()
         body = resp.json()
@@ -611,7 +429,6 @@ def supabase_signup(email: str, password: str) -> dict[str, Any] | None:
 # API calls
 # ---------------------------------------------------------------------------
 
-
 def _auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
@@ -620,13 +437,19 @@ def call_chat(
     query: str, top_k: int, dense_top_k: int, bm25_top_k: int, token: str,
 ) -> dict[str, Any] | None:
     payload = {"query": query, "top_k": top_k, "dense_top_k": dense_top_k, "bm25_top_k": bm25_top_k}
+    client = get_http_client()
     try:
-        with httpx.Client(timeout=90) as client:
-            resp = client.post(f"{API_BASE_URL}/chat", headers=_auth_headers(token), json=payload)
+        resp = client.post(f"{API_BASE_URL}/chat", headers=_auth_headers(token), json=payload)
         resp.raise_for_status()
         return resp.json()
     except httpx.HTTPStatusError as exc:
-        st.error(f"API error {exc.response.status_code}: {exc.response.text[:300]}")
+        # IMPROVEMENT 2: Graceful JWT Expiration
+        if exc.response.status_code == 401:
+            st.error("Session expired. Please sign in again.")
+            st.session_state.access_token = None
+            st.rerun()
+        else:
+            st.error(f"API error {exc.response.status_code}: {exc.response.text[:300]}")
         return None
     except httpx.RequestError as exc:
         st.error(f"Could not reach API: {exc}")
@@ -637,36 +460,51 @@ def stream_chat(
     query: str, top_k: int, dense_top_k: int, bm25_top_k: int, token: str,
 ) -> Generator[tuple[str, dict[str, Any]], None, None]:
     payload = {"query": query, "top_k": top_k, "dense_top_k": dense_top_k, "bm25_top_k": bm25_top_k}
-    current_event: str | None = None
-    current_data: str | None = None
+    client = get_http_client()
     try:
-        with httpx.Client(timeout=120) as client:
-            with client.stream("POST", f"{API_BASE_URL}/chat/stream", headers=_auth_headers(token), json=payload) as resp:
-                resp.raise_for_status()
-                for raw_line in resp.iter_lines():
-                    line = raw_line.strip()
-                    if line.startswith("event:"):
-                        current_event = line[len("event:"):].strip()
-                    elif line.startswith("data:"):
-                        current_data = line[len("data:"):].strip()
-                    elif line == "" and current_event and current_data:
+        with client.stream("POST", f"{API_BASE_URL}/chat/stream", headers=_auth_headers(token), json=payload) as resp:
+            resp.raise_for_status()
+            
+            # IMPROVEMENT 4: Robust SSE Chunk Parsing
+            current_event = "message"
+            current_data = []
+
+            for raw_line in resp.iter_lines():
+                line = raw_line.strip()
+                
+                # An empty line denotes the end of an SSE block
+                if not line:
+                    if current_data:
+                        data_str = "\n".join(current_data)
                         try:
-                            data = json.loads(current_data)
+                            parsed_data = json.loads(data_str)
                         except json.JSONDecodeError:
-                            data = {"raw": current_data}
-                        yield current_event, data
-                        current_event = None
-                        current_data = None
+                            parsed_data = {"raw": data_str}
+                        yield current_event, parsed_data
+                    # Reset state for next block
+                    current_event = "message"
+                    current_data = []
+                elif line.startswith("event:"):
+                    current_event = line[len("event:"):].strip()
+                elif line.startswith("data:"):
+                    current_data.append(line[len("data:"):].strip())
+                    
     except httpx.HTTPStatusError as exc:
-        st.error(f"API error {exc.response.status_code}: {exc.response.text[:300]}")
+        # IMPROVEMENT 2: Graceful JWT Expiration
+        if exc.response.status_code == 401:
+            st.error("Session expired. Please sign in again.")
+            st.session_state.access_token = None
+            st.rerun()
+        else:
+            st.error(f"API error {exc.response.status_code}: {exc.response.text[:300]}")
     except httpx.RequestError as exc:
         st.error(f"Could not reach API: {exc}")
 
 
 def check_api_health() -> bool:
+    client = get_http_client()
     try:
-        with httpx.Client(timeout=10) as client:
-            resp = client.get(f"{API_BASE_URL}/health/live")
+        resp = client.get(f"{API_BASE_URL}/health/live")
         return resp.status_code == 200
     except httpx.RequestError:
         return False
@@ -750,14 +588,11 @@ def _render_faithfulness(faithfulness: dict[str, Any] | None) -> None:
 # Login page
 # ---------------------------------------------------------------------------
 
-
 def render_login_page() -> None:
-    # Vertical centering spacer
     st.markdown("<div style='padding-top:8vh'></div>", unsafe_allow_html=True)
 
     _, col, _ = st.columns([1, 2, 1])
     with col:
-        # Auth mode tabs (outside form for proper styling)
         auth_mode = st.session_state.get("auth_mode", "Sign in")
         tab1, tab2 = st.columns(2, gap="small")
         
@@ -786,7 +621,6 @@ def render_login_page() -> None:
         with st.form("auth_form"):
             auth_mode = st.session_state.get("auth_mode", "Sign in")
 
-            # Header — inside the form so it's part of the glow card
             st.markdown(
                 f"""
                 <div class="login-header">
@@ -803,24 +637,12 @@ def render_login_page() -> None:
                 unsafe_allow_html=True,
             )
 
-            email = st.text_input(
-                "Email",
-                placeholder="you@example.com",
-                label_visibility="collapsed",
-            )
-            password = st.text_input(
-                "Password",
-                type="password",
-                placeholder="Password",
-                label_visibility="collapsed",
-            )
+            email = st.text_input("Email", placeholder="you@example.com", label_visibility="collapsed")
+            password = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
 
             if auth_mode == "Sign up":
                 password_confirm = st.text_input(
-                    "Confirm Password",
-                    type="password",
-                    placeholder="Confirm password",
-                    label_visibility="collapsed",
+                    "Confirm Password", type="password", placeholder="Confirm password", label_visibility="collapsed"
                 )
             else:
                 password_confirm = None
@@ -830,7 +652,6 @@ def render_login_page() -> None:
                 use_container_width=True,
             )
 
-            # Footer — inside the form card
             st.markdown(
                 f"""<div class="login-footer">
                     {micon('lock', 14, '#555')} Secured with Supabase Auth ·
@@ -839,7 +660,6 @@ def render_login_page() -> None:
                 unsafe_allow_html=True,
             )
 
-        # Handle form submission outside the form context
         if submitted:
             auth_mode = st.session_state.get("auth_mode", "Sign in")
             if not email or not password:
@@ -870,100 +690,61 @@ def render_login_page() -> None:
 # Sidebar
 # ---------------------------------------------------------------------------
 
-
 def _sidebar_section(icon_name: str, title: str) -> None:
-    """Render a styled section header inside the sidebar."""
     st.markdown(
         f'<div class="sidebar-section">{micon(icon_name, 18, "#F59E0B", 500, 0, 1)} '
         f'<h3>{title}</h3></div>',
         unsafe_allow_html=True,
     )
 
-
 def _chat_avatar(role: str) -> str:
-    """Return a supported avatar token for chat message roles."""
     return ":material/person:" if role == "user" else ":material/gavel:"
 
 
-def _make_retry_payload(
-    query: str,
-    top_k: int,
-    dense_top_k: int,
-    bm25_top_k: int,
-    mode: str,
-) -> dict[str, Any]:
+def _make_retry_payload(query: str, top_k: int, dense_top_k: int, bm25_top_k: int, mode: str) -> dict[str, Any]:
     return {
-        "query": query,
-        "top_k": top_k,
-        "dense_top_k": dense_top_k,
-        "bm25_top_k": bm25_top_k,
-        "mode": mode,
+        "query": query, "top_k": top_k, "dense_top_k": dense_top_k, "bm25_top_k": bm25_top_k, "mode": mode,
     }
 
 
 def _render_retry_button(retry_payload: dict[str, Any], key_suffix: str) -> None:
     col1, col2, col3 = st.columns([1, 0.2, 1])
     with col2:
-        if st.button(
-            ":material/refresh: Retry",
-            key=f"retry_{key_suffix}",
-            use_container_width=True,
-            type="secondary",
-        ):
+        if st.button(":material/refresh: Retry", key=f"retry_{key_suffix}", use_container_width=True, type="secondary"):
             st.session_state.retry_request = retry_payload
             st.rerun()
 
 
 def render_sidebar() -> tuple[int, int, int]:
     with st.sidebar:
-        # ── Profile links (only shown if configured) ──
         if any([LINKEDIN_URL, GITHUB_URL, BLOG_URL]):
             _sidebar_section("person", "Profile")
             links_html = '<div class="profile-links">'
-            if LINKEDIN_URL:
-                links_html += f'<a href="{LINKEDIN_URL}" target="_blank">{micon("link", 14)} LinkedIn</a>'
-            if GITHUB_URL:
-                links_html += f'<a href="{GITHUB_URL}" target="_blank">{micon("code", 14)} GitHub</a>'
-            if BLOG_URL:
-                links_html += f'<a href="{BLOG_URL}" target="_blank">{micon("rss_feed", 14)} Blog</a>'
+            if LINKEDIN_URL: links_html += f'<a href="{LINKEDIN_URL}" target="_blank">{micon("link", 14)} LinkedIn</a>'
+            if GITHUB_URL: links_html += f'<a href="{GITHUB_URL}" target="_blank">{micon("code", 14)} GitHub</a>'
+            if BLOG_URL: links_html += f'<a href="{BLOG_URL}" target="_blank">{micon("rss_feed", 14)} Blog</a>'
             links_html += '</div>'
             st.markdown(links_html, unsafe_allow_html=True)
 
         st.markdown("---")
 
-        # ── Settings ──
         _sidebar_section("tune", "Settings")
 
         current_mode = st.session_state.get("chat_mode", "Stream")
         st.session_state.chat_mode = st.segmented_control(
-            "Response mode",
-            ["Stream", "Sync"],
+            "Response mode", ["Stream", "Sync"],
             default=current_mode if current_mode in {"Stream", "Sync"} else "Stream",
-            selection_mode="single",
-            required=True,
-            width="stretch",
-            label_visibility="collapsed",
+            selection_mode="single", label_visibility="collapsed",
         )
 
-        top_k = st.slider(
-            "Citations (top-k)",
-            min_value=1, max_value=15, value=5,
-            help="How many source citations to attach.",
-        )
+        top_k = st.slider("Citations (top-k)", min_value=1, max_value=15, value=5)
 
         with st.expander("Advanced retrieval", expanded=False):
-            dense_top_k = st.slider(
-                "Dense candidates", min_value=7, max_value=100, value=10,
-                help="Dense-vector candidates before RRF fusion.",
-            )
-            bm25_top_k = st.slider(
-                "BM25 candidates", min_value=7, max_value=100, value=10,
-                help="BM25 candidates before RRF fusion.",
-            )
+            dense_top_k = st.slider("Dense candidates", min_value=7, max_value=100, value=10)
+            bm25_top_k = st.slider("BM25 candidates", min_value=7, max_value=100, value=10)
 
         st.markdown("---")
 
-        # ── API health ──
         _sidebar_section("monitor_heart", "API Status")
 
         if st.button("Check health", use_container_width=True, type="secondary"):
@@ -972,22 +753,14 @@ def render_sidebar() -> tuple[int, int, int]:
             st.session_state.api_health_status = healthy
             st.session_state.api_health_checked = True
 
-        # Display stored health status
         if st.session_state.get("api_health_checked"):
             if st.session_state.get("api_health_status"):
-                st.markdown(
-                    f'<span class="status-pill online">{micon("check_circle", 14, "#10B981", 500, 0, 1)} Online</span>',
-                    unsafe_allow_html=True,
-                )
+                st.markdown(f'<span class="status-pill online">{micon("check_circle", 14, "#10B981", 500, 0, 1)} Online</span>', unsafe_allow_html=True)
             else:
-                st.markdown(
-                    f'<span class="status-pill offline">{micon("error", 14, "#EF4444", 500, 0, 1)} Unreachable</span>',
-                    unsafe_allow_html=True,
-                )
+                st.markdown(f'<span class="status-pill offline">{micon("error", 14, "#EF4444", 500, 0, 1)} Unreachable</span>', unsafe_allow_html=True)
 
         st.markdown("---")
 
-        # ── Session ──
         _sidebar_section("badge", "Session")
         st.markdown(
             f"""<div class="user-card">
@@ -1009,9 +782,7 @@ def render_sidebar() -> tuple[int, int, int]:
 # Chat UI
 # ---------------------------------------------------------------------------
 
-
 def render_chat(top_k: int, dense_top_k: int, bm25_top_k: int) -> None:
-    # Title bar
     st.markdown(
         f"""<div style="display:flex;align-items:center;gap:10px;margin-bottom:-0.5rem;">
     {micon('gavel', 30, '#F59E0B', 600, 0, 1)}
@@ -1023,7 +794,6 @@ def render_chat(top_k: int, dense_top_k: int, bm25_top_k: int) -> None:
     )
     st.caption("Grounded answers on Indian GST & Income Tax law — every claim cites its source clause.")
 
-    # Replay history
     for idx, msg in enumerate(st.session_state.messages):
         with st.chat_message(msg["role"], avatar=_chat_avatar(msg["role"])):
             if msg["role"] == "user":
@@ -1083,11 +853,7 @@ def _handle_stream(query: str, top_k: int, dense_top_k: int, bm25_top_k: int, to
         failure_text = ""
 
         retry_payload = _make_retry_payload(
-            query=query,
-            top_k=top_k,
-            dense_top_k=dense_top_k,
-            bm25_top_k=bm25_top_k,
-            mode="Stream",
+            query=query, top_k=top_k, dense_top_k=dense_top_k, bm25_top_k=bm25_top_k, mode="Stream",
         )
 
         with st.spinner("Thinking…"):
@@ -1134,11 +900,7 @@ def _handle_stream(query: str, top_k: int, dense_top_k: int, bm25_top_k: int, to
 def _handle_sync(query: str, top_k: int, dense_top_k: int, bm25_top_k: int, token: str) -> None:
     with st.chat_message("assistant", avatar=_chat_avatar("assistant")):
         retry_payload = _make_retry_payload(
-            query=query,
-            top_k=top_k,
-            dense_top_k=dense_top_k,
-            bm25_top_k=bm25_top_k,
-            mode="Sync",
+            query=query, top_k=top_k, dense_top_k=dense_top_k, bm25_top_k=bm25_top_k, mode="Sync",
         )
 
         failed = False
@@ -1195,30 +957,24 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Inject theme CSS (@import in <style> block)
 st.markdown(THEME_CSS, unsafe_allow_html=True)
 
-# Reliable font loader — injects <link> tags into the parent document head via
-# JS inside a zero-height iframe.  Needed because st.markdown strips <link> tags
-# and @import may be blocked by some Streamlit deployments.
 _FONT_URLS = [
     "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap",
     "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap",
     "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap",
 ]
 _font_js = "\n".join(
-    f"""if(!parent.document.querySelector('link[href="{u}"]')){{
+    f"""if(!parent.document.querySelector('link[href="{u}"])){{
     var l=parent.document.createElement('link');l.rel='stylesheet';l.href='{u}';
     parent.document.head.appendChild(l);}}"""
     for u in _FONT_URLS
 )
-_font_links_local = "".join(
-    f'<link rel="stylesheet" href="{u}">' for u in _FONT_URLS
-)
-st.html(
+_font_links_local = "".join(f'<link rel="stylesheet" href="{u}">' for u in _FONT_URLS)
+st.markdown(
     f"{_font_links_local}<script>{_font_js}</script>"
-    "<style>html,body{margin:0;padding:0;height:0;overflow:hidden}</style>",
-    unsafe_allow_javascript=True,
+    "<style>html,body{{margin:0;padding:0;height:0;overflow:hidden}}</style>",
+    unsafe_allow_html=True,
 )
 
 _init_session()
