@@ -30,9 +30,9 @@ import streamlit as st
 # ---------------------------------------------------------------------------
 # Profile — fill in your own links
 # ---------------------------------------------------------------------------
-LINKEDIN_URL = "https://linkedin.com/in/YOUR_PROFILE"
-GITHUB_URL = "https://github.com/YOUR_USERNAME"
-BLOG_URL = "https://yourblog.com"
+LINKEDIN_URL = "https://linkedin.com/in/krishna-khandelwal-b86541250/"
+GITHUB_URL = "https://github.com/KKhandelwal1733"
+BLOG_URL = "https://kkhandelwal.me"
 
 # ---------------------------------------------------------------------------
 # Configuration
